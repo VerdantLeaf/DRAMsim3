@@ -195,6 +195,19 @@ bool Controller::AddTransaction(Transaction trans) {
 }
 
 void Controller::ScheduleTransaction() {
+    
+    int bufcount = 0; // counts buf changes
+
+    // Design:
+    /*
+        1. Determine if we want to keep the remaining structure of the func
+        2. Go through queue:
+            - Each time you see 
+    
+        gtg -- do later
+    
+    */
+
     // determine whether to schedule read or write
     if (write_draining_ == 0 && !is_unified_queue_) {
         // we basically have a upper and lower threshold for write buffer
@@ -203,10 +216,6 @@ void Controller::ScheduleTransaction() {
             write_draining_ = write_buffer_.size();
         }
     }
-
-    // test change for DRAMSim3
-
-    // try something else
 
     std::vector<Transaction> &queue =
         is_unified_queue_ ? unified_queue_

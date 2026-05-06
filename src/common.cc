@@ -28,16 +28,22 @@ std::ostream& operator<<(std::ostream& os, const Command& cmd) {
 
 std::ostream& operator<<(std::ostream& os, const Transaction& trans) {
     const std::string trans_type = trans.is_write ? "WRITE" : "READ";
-    os << fmt::format("{:<30} {:>8}", trans.addr, trans_type);
+    const std::string buf_type   = trans.change_buffering ? "BUF_CHANGE" : " ";
+    os << fmt::format("{:<30} {:>8} {:>8}", trans.addr, trans_type, buf_type);
     return os;
 }
 
 std::istream& operator>>(std::istream& is, Transaction& trans) {
     std::unordered_set<std::string> write_types = {"WRITE", "write", "P_MEM_WR",
                                                    "BOFF"};
-    std::string mem_op;
-    is >> std::hex >> trans.addr >> mem_op >> std::dec >> trans.added_cycle;
+
+    std::unordered_set<std::string> buf_types   = {"EB", "DB"};
+    std::string mem_op, buf_op;
+
+    is >> std::hex >> trans.addr >> mem_op >> std::dec >> trans.added_cycle >> buf_op;
     trans.is_write = write_types.count(mem_op) == 1;
+    trans.change_buffering = buf_types.count(buf_op) == 1; // Catch EB and DB
+
     return is;
 }
 

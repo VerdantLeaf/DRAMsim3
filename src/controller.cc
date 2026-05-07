@@ -196,17 +196,9 @@ bool Controller::AddTransaction(Transaction trans) {
 
 void Controller::ScheduleTransaction() {
     
-    int bufcount = 0; // counts buf changes
-
-    // Design:
-    /*
-        1. Determine if we want to keep the remaining structure of the func
-        2. Go through queue:
-            - Each time you see 
-    
-        gtg -- do later
-    
-    */
+    unsigned int bufcount = 0; // counts buf changes
+    bool bufwrite = false; // are we buffering writes or reads
+    int bufbank = -1; // Buffer only the reqs to the bank
 
     // determine whether to schedule read or write
     if (write_draining_ == 0 && !is_unified_queue_) {
@@ -220,8 +212,22 @@ void Controller::ScheduleTransaction() {
     std::vector<Transaction> &queue =
         is_unified_queue_ ? unified_queue_
                           : write_draining_ > 0 ? write_buffer_ : read_queue_;
+
+    // do standard FCFS
     for (auto it = queue.begin(); it != queue.end(); it++) {
+
         auto cmd = TransToCommand(*it);
+
+        // Look for flag
+        if(it->change_buffering) {
+            bufcount++;
+            bufwrite = it->is_write;
+            bufbank = cmd.Bank();
+        }
+
+        // if buffering is enabled, and the req matches to be buffered, skip
+        if((bufcount % 2) && (it->is_write == bufwrite) && (cmd.Bank() == bufbank)) continue;
+        
         if (cmd_queue_.WillAcceptCommand(cmd.Rank(), cmd.Bankgroup(),
                                          cmd.Bank())) {
             if (!is_unified_queue_ && cmd.IsWrite()) {

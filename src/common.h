@@ -126,5 +126,9 @@ struct Transaction {
     friend std::istream& operator>>(std::istream& is, Transaction& trans);
 };
 
+// For buffering optimization, just include in common:
+extern bool enable_buffering;
+
+
 }  // namespace dramsim3
 #endif

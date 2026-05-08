@@ -28,6 +28,10 @@ int main(int argc, const char **argv) {
     args::Positional<std::string> config_arg(
         parser, "config", "The config file name (mandatory)");
 
+    args::Flag enable_buffering_arg(parser, "enable_buffering",
+        "Enable buffering optimization",
+        {"enable_buffering"});  
+
     try {
         parser.ParseCLI(argc, argv);
     } catch (args::Help) {
@@ -49,6 +53,7 @@ int main(int argc, const char **argv) {
     std::string output_dir = args::get(output_dir_arg);
     std::string trace_file = args::get(trace_file_arg);
     std::string stream_type = args::get(stream_arg);
+    bool enable_buffering = args::get(enable_buffering_arg);
 
     CPU *cpu;
     if (!trace_file.empty()) {

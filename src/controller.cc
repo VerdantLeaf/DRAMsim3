@@ -5,6 +5,8 @@
 
 namespace dramsim3 {
 
+    bool enable_buffering = false;
+
 #ifdef THERMAL
 Controller::Controller(int channel, const Config &config, const Timing &timing,
                        ThermalCalculator &thermal_calc)
@@ -208,12 +210,10 @@ void Controller::ScheduleTransaction() {
             write_draining_ = write_buffer_.size();
         }
     }
-    // This is crude, there are changes you should make
+    // Run with and without unified queue?
     std::vector<Transaction> &queue =
         is_unified_queue_ ? unified_queue_
                           : write_draining_ > 0 ? write_buffer_ : read_queue_;
-
-    // test change
 
     // do standard FCFS
     for (auto it = queue.begin(); it != queue.end(); it++) {
@@ -221,15 +221,16 @@ void Controller::ScheduleTransaction() {
         auto cmd = TransToCommand(*it);
 
         // Look for flag
-        if(it->change_buffering) {
-            bufcount++;
-            bufwrite = it->is_write;
-            bufbank = cmd.Bank();
+        if(enable_buffering){
+            if(it->change_buffering) {
+                bufcount++;
+                bufwrite = it->is_write;
+                bufbank = cmd.Bank();
+            }
+            // if buffering is enabled, and the req matches to be buffered, skip
+            if((bufcount % 2) && (it->is_write == bufwrite) && (cmd.Bank() == bufbank)) continue;
         }
 
-        // if buffering is enabled, and the req matches to be buffered, skip
-        if((bufcount % 2) && (it->is_write == bufwrite) && (cmd.Bank() == bufbank)) continue;
-        
         if (cmd_queue_.WillAcceptCommand(cmd.Rank(), cmd.Bankgroup(),
                                          cmd.Bank())) {
             if (!is_unified_queue_ && cmd.IsWrite()) {

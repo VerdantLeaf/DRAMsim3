@@ -120,15 +120,16 @@ struct Transaction {
     uint64_t added_cycle;
     uint64_t complete_cycle;
     bool is_write;
-    bool change_buffering; // invert the current buffering state
+    uint64_t buf_uid;       // unique ID
+    uint64_t buf_offset;    // used with addr to determine size
+    bool buf_stop;          // is this a stop block for this uid
 
     friend std::ostream& operator<<(std::ostream& os, const Transaction& trans);
     friend std::istream& operator>>(std::istream& is, Transaction& trans);
 };
 
-// For buffering optimization, just include in common:
-extern bool enable_buffering;
-
+    extern bool g_buf_enabled;
+    extern uint64_t g_buf_watchdog_cycles;
 
 }  // namespace dramsim3
 #endif

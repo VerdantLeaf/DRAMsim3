@@ -2,10 +2,9 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <list>
 
 namespace dramsim3 {
-
-    bool enable_buffering = false;
 
 #ifdef THERMAL
 Controller::Controller(int channel, const Config &config, const Timing &timing,
@@ -143,11 +142,63 @@ void Controller::ClockTick() {
         }
     }
 
+    std::vector<uint64_t> evict;
+    for (auto &entry : block_enqueue_cycle_) {
+        if (clk_ - entry.second > kBufWatchdogCycles) {
+            evict.push_back(entry.first);
+        }
+    }
+    for (auto uid : evict) {
+        std::cerr << "Warning: buffer block uid=" << uid 
+                << " evicted by watchdog at clk=" << clk_ << std::endl;
+        FlushBufferedBlock(uid);
+    }
+
     ScheduleTransaction();
     clk_++;
     cmd_queue_.ClockTick();
     simple_stats_.Increment("num_cycles");
     return;
+}
+
+void Controller::FlushBufferedBlock(uint64_t uid){
+    // Get the staged transactions
+    auto staged_it = staged_.find(uid);
+    if (staged_it == staged_.end()) return;
+
+    for (auto &trans : staged_it->second) {
+        if (trans.is_write) {
+            // add to write buf
+            if (pending_wr_q_.count(trans.addr) == 0) {
+
+                pending_wr_q_.insert({trans.addr, trans});
+
+                is_unified_queue_ ? unified_queue_.insert(unified_queue_.begin(), trans)
+                                : write_buffer_.insert(write_buffer_.begin(), trans);
+            }
+            trans.complete_cycle = clk_ + 1;
+            return_queue_.push_back(trans);
+        } else {
+            // add to read queue
+            if (pending_wr_q_.count(trans.addr) > 0) {
+                trans.complete_cycle = clk_ + 1;
+                return_queue_.push_back(trans);
+            } else {
+                pending_rd_q_.insert({trans.addr, trans});
+                if (pending_rd_q_.count(trans.addr) == 1) {
+
+                    is_unified_queue_ ? unified_queue_.insert(unified_queue_.begin(), trans)
+                                    : read_queue_.insert(read_queue_.begin(), trans);
+                }
+            }
+        }
+    }
+
+    // Clean up
+    addr_index_.erase(active_blocks_.at(uid).addr);
+    active_blocks_.erase(uid);
+    staged_.erase(uid);
+    block_enqueue_cycle_.erase(uid);
 }
 
 bool Controller::WillAcceptTransaction(uint64_t hex_addr, bool is_write) const {
@@ -164,6 +215,52 @@ bool Controller::AddTransaction(Transaction trans) {
     trans.added_cycle = clk_;
     simple_stats_.AddValue("interarrival_latency", clk_ - last_trans_clk_);
     last_trans_clk_ = clk_;
+
+    // Buffering logic -- Intercept transactions before they make it to a queue
+    if(trans.buf_uid != 0)
+    {
+        if(!trans.buf_stop){
+            // is start block
+            if(pending_stops_.count(trans.buf_uid)){
+                // stop arrived, don't buffer
+                pending_stops_.erase(trans.buf_uid);
+            } else {
+
+                active_blocks_[trans.buf_uid] = trans;
+                addr_index_[trans.addr] = trans.buf_uid;
+                staged_[trans.buf_uid] = {trans}; // add trans for staged vec
+                block_enqueue_cycle_[trans.buf_uid] = clk_;
+                return true;
+            }
+        } else {
+            // is stop block
+            if(!active_blocks_.count(trans.buf_uid)){
+                // start not arrived yet
+                pending_stops_.insert(trans.buf_uid);
+                return true;
+            }
+            // push stop transaction before flushing
+            staged_[trans.buf_uid].push_back(trans); 
+            FlushBufferedBlock(trans.buf_uid);
+            return true;
+        }
+    }
+
+    // check if addr falls within buffered block
+    if(!addr_index_.empty()){
+        auto it = addr_index_.upper_bound(trans.addr);
+        if(it != addr_index_.begin()){
+            --it;
+            const auto &block = active_blocks_.at(it->second);
+            if(trans.addr < block.addr + block.buf_offset){
+                // add to staged transactions
+                staged_[it->second].push_back(trans);
+                return true;
+            }
+        }
+    }
+
+    // ---- end buffering logic ----
 
     if (trans.is_write) {
         if (pending_wr_q_.count(trans.addr) == 0) {  // can not merge writes
@@ -198,10 +295,6 @@ bool Controller::AddTransaction(Transaction trans) {
 
 void Controller::ScheduleTransaction() {
     
-    unsigned int bufcount = 0; // counts buf changes
-    bool bufwrite = false; // are we buffering writes or reads
-    int bufbank = -1; // Buffer only the reqs to the bank
-
     // determine whether to schedule read or write
     if (write_draining_ == 0 && !is_unified_queue_) {
         // we basically have a upper and lower threshold for write buffer
@@ -210,7 +303,7 @@ void Controller::ScheduleTransaction() {
             write_draining_ = write_buffer_.size();
         }
     }
-    // Run with and without unified queue?
+
     std::vector<Transaction> &queue =
         is_unified_queue_ ? unified_queue_
                           : write_draining_ > 0 ? write_buffer_ : read_queue_;
@@ -219,17 +312,6 @@ void Controller::ScheduleTransaction() {
     for (auto it = queue.begin(); it != queue.end(); it++) {
 
         auto cmd = TransToCommand(*it);
-
-        // Look for flag
-        if(enable_buffering){
-            if(it->change_buffering) {
-                bufcount++;
-                bufwrite = it->is_write;
-                bufbank = cmd.Bank();
-            }
-            // if buffering is enabled, and the req matches to be buffered, skip
-            if((bufcount % 2) && (it->is_write == bufwrite) && (cmd.Bank() == bufbank)) continue;
-        }
 
         if (cmd_queue_.WillAcceptCommand(cmd.Rank(), cmd.Bankgroup(),
                                          cmd.Bank())) {

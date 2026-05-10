@@ -40,12 +40,17 @@ class Controller {
     int channel_id_;
 
    private:
+    
+    void FlushBufferedBlock(uint64_t uid);
+    
+
     uint64_t clk_;
     const Config &config_;
     SimpleStats simple_stats_;
     ChannelState channel_state_;
     CommandQueue cmd_queue_;
     Refresh refresh_;
+
 
 #ifdef THERMAL
     ThermalCalculator &thermal_calc_;
@@ -56,6 +61,18 @@ class Controller {
     std::vector<Transaction> unified_queue_;
     std::vector<Transaction> read_queue_;
     std::vector<Transaction> write_buffer_;
+
+    // Buffering data structures:
+    std::unordered_map<uint64_t, Transaction> active_blocks_;         // uid -> start transaction
+    std::map<uint64_t, uint64_t> addr_index_;                       // start_addr -> uid
+    std::unordered_map<uint64_t, std::vector<Transaction>> staged_;   // uid -> Held transactions
+    std::unordered_set<uint64_t> pending_stops_;                    // needed for completeness/assurance
+    std::unordered_map<uint64_t, uint64_t> block_enqueue_cycle_;    // uid -> clk_ at registration
+
+    // Buffering vars:
+    bool enable_buffering;
+    static constexpr uint64_t kBufWatchdogCycles = 10000;
+
 
     // transactions that are not completed, use map for convenience
     std::multimap<uint64_t, Transaction> pending_rd_q_;

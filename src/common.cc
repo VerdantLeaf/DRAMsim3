@@ -6,6 +6,10 @@
 
 namespace dramsim3 {
 
+uint64_t g_buf_watchdog_cycles = 10000;  // set defaults
+bool g_buf_enabled = false;
+
+
 std::ostream& operator<<(std::ostream& os, const Command& cmd) {
     std::vector<std::string> command_string = {
         "read",
@@ -28,22 +32,18 @@ std::ostream& operator<<(std::ostream& os, const Command& cmd) {
 
 std::ostream& operator<<(std::ostream& os, const Transaction& trans) {
     const std::string trans_type = trans.is_write ? "WRITE" : "READ";
-    const std::string buf_type   = trans.change_buffering ? "BUF_CHANGE" : " ";
-    os << fmt::format("{:<30} {:>8} {:>8}", trans.addr, trans_type, buf_type);
+    os << fmt::format("{:<30} {:>8} {:>8} {:>8}", trans.addr, trans_type, trans.buf_uid, trans.buf_offset);
     return os;
 }
 
 std::istream& operator>>(std::istream& is, Transaction& trans) {
     std::unordered_set<std::string> write_types = {"WRITE", "write", "P_MEM_WR",
                                                    "BOFF"};
+    std::string mem_op;
 
-    std::unordered_set<std::string> buf_types   = {"EB", "DB"};
-    std::string mem_op, buf_op;
-
-    is >> std::hex >> trans.addr >> mem_op >> std::dec >> trans.added_cycle >> buf_op;
+    is >> std::hex >> trans.addr >> mem_op >> std::dec >> trans.added_cycle >> trans.buf_uid >> trans.buf_offset;
     trans.is_write = write_types.count(mem_op) == 1;
-    trans.change_buffering = buf_types.count(buf_op) == 1; // Catch EB and DB
-
+  
     return is;
 }
 

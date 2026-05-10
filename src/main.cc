@@ -1,6 +1,7 @@
 #include <iostream>
 #include "./../ext/headers/args.hxx"
 #include "cpu.h"
+#include "common.h"
 
 using namespace dramsim3;
 
@@ -32,6 +33,10 @@ int main(int argc, const char **argv) {
         "Enable buffering optimization",
         {"enable_buffering"});  
 
+    args::ValueFlag<uint64_t> WDTimer_arg(parser, "buffering_WDT",
+                            "Max clk ticks before flushing buffered data",
+                            {'w', "wd_timer"}, 10000);
+
     try {
         parser.ParseCLI(argc, argv);
     } catch (args::Help) {
@@ -53,7 +58,9 @@ int main(int argc, const char **argv) {
     std::string output_dir = args::get(output_dir_arg);
     std::string trace_file = args::get(trace_file_arg);
     std::string stream_type = args::get(stream_arg);
-    bool enable_buffering = args::get(enable_buffering_arg);
+    
+    g_buf_enabled = args::get(enable_buffering_arg);
+    g_buf_watchdog_cycles = args::get(WDTimer_arg);
 
     CPU *cpu;
     if (!trace_file.empty()) {

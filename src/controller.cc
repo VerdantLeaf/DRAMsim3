@@ -142,16 +142,18 @@ void Controller::ClockTick() {
         }
     }
 
-    std::vector<uint64_t> evict;
-    for (auto &entry : block_enqueue_cycle_) {
-        if (clk_ - entry.second > kBufWatchdogCycles) {
-            evict.push_back(entry.first);
+    if(enable_buffering){
+        std::vector<uint64_t> evict;
+        for (auto &entry : block_enqueue_cycle_) {
+            if (clk_ - entry.second > kBufWatchdogCycles) {
+                evict.push_back(entry.first);
+            }
         }
-    }
-    for (auto uid : evict) {
-        std::cerr << "Warning: buffer block uid=" << uid 
-                << " evicted by watchdog at clk=" << clk_ << std::endl;
-        FlushBufferedBlock(uid);
+        for (auto uid : evict) {
+            std::cerr << "Warning: buffer block uid=" << uid 
+                    << " evicted by watchdog at clk=" << clk_ << std::endl;
+            FlushBufferedBlock(uid);
+        }
     }
 
     ScheduleTransaction();
@@ -217,45 +219,46 @@ bool Controller::AddTransaction(Transaction trans) {
     last_trans_clk_ = clk_;
 
     // Buffering logic -- Intercept transactions before they make it to a queue
-    if(trans.buf_uid != 0)
-    {
-        if(!trans.buf_stop){
-            // is start block
-            if(pending_stops_.count(trans.buf_uid)){
-                // stop arrived, don't buffer
-                pending_stops_.erase(trans.buf_uid);
+    if(enable_buffering){
+        if(trans.buf_uid != 0){
+            if(!trans.buf_stop){
+                // is start block
+                if(pending_stops_.count(trans.buf_uid)){
+                    // stop arrived, don't buffer
+                    pending_stops_.erase(trans.buf_uid);
+                } else {
+
+                    active_blocks_[trans.buf_uid] = trans;
+                    addr_index_[trans.addr] = trans.buf_uid;
+                    staged_[trans.buf_uid] = {trans}; // add trans for staged vec
+                    block_enqueue_cycle_[trans.buf_uid] = clk_;
+                    return true;
+                }
             } else {
-
-                active_blocks_[trans.buf_uid] = trans;
-                addr_index_[trans.addr] = trans.buf_uid;
-                staged_[trans.buf_uid] = {trans}; // add trans for staged vec
-                block_enqueue_cycle_[trans.buf_uid] = clk_;
+                // is stop block
+                if(!active_blocks_.count(trans.buf_uid)){
+                    // start not arrived yet
+                    pending_stops_.insert(trans.buf_uid);
+                    return true;
+                }
+                // push stop transaction before flushing
+                staged_[trans.buf_uid].push_back(trans); 
+                FlushBufferedBlock(trans.buf_uid);
                 return true;
             }
-        } else {
-            // is stop block
-            if(!active_blocks_.count(trans.buf_uid)){
-                // start not arrived yet
-                pending_stops_.insert(trans.buf_uid);
-                return true;
-            }
-            // push stop transaction before flushing
-            staged_[trans.buf_uid].push_back(trans); 
-            FlushBufferedBlock(trans.buf_uid);
-            return true;
         }
-    }
 
-    // check if addr falls within buffered block
-    if(!addr_index_.empty()){
-        auto it = addr_index_.upper_bound(trans.addr);
-        if(it != addr_index_.begin()){
-            --it;
-            const auto &block = active_blocks_.at(it->second);
-            if(trans.addr < block.addr + block.buf_offset){
-                // add to staged transactions
-                staged_[it->second].push_back(trans);
-                return true;
+        // check if addr falls within buffered block
+        if(!addr_index_.empty()){
+            auto it = addr_index_.upper_bound(trans.addr);
+            if(it != addr_index_.begin()){
+                --it;
+                const auto &block = active_blocks_.at(it->second);
+                if(trans.addr < block.addr + block.buf_offset){
+                    // add to staged transactions
+                    staged_[it->second].push_back(trans);
+                    return true;
+                }
             }
         }
     }

@@ -70,6 +70,9 @@ TraceBasedCPU::TraceBasedCPU(const std::string& config_file,
     }
 }
 
+uint64_t my_counter = 0;
+uint64_t rejected_counter = 0;
+
 void TraceBasedCPU::ClockTick() {
     memory_system_.ClockTick();
     if (!trace_file_.eof()) {
@@ -83,6 +86,15 @@ void TraceBasedCPU::ClockTick() {
             if (get_next_) {
                 // memory_system_.AddTransaction(trans_.addr, trans_.is_write);
                 memory_system_.AddTransaction(trans_);
+                my_counter++;
+
+                if(trans_.buf_uid != 0) {
+                    std::cerr << "Submitting buffered trans uid=" << trans_.buf_uid 
+                            << " stop=" << trans_.buf_stop
+                            << " clk=" << clk_ << std::endl;
+                }
+            } else {
+               rejected_counter++;
             }
         }
     }

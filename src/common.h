@@ -7,6 +7,10 @@
 
 namespace dramsim3 {
 
+
+extern uint64_t my_counter;
+extern uint64_t rejected_counter;
+
 struct Address {
     Address()
         : channel(-1), rank(-1), bankgroup(-1), bank(-1), row(-1), column(-1) {}

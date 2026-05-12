@@ -64,7 +64,6 @@ class Controller {
 
     // Buffering data structures:
     std::unordered_map<uint64_t, Transaction> active_blocks_;         // uid -> start transaction
-    std::map<uint64_t, uint64_t> addr_index_;                       // start_addr -> uid
     std::unordered_map<uint64_t, std::vector<Transaction>> staged_;   // uid -> Held transactions
     std::unordered_set<uint64_t> pending_stops_;                    // needed for completeness/assurance
     std::unordered_map<uint64_t, uint64_t> block_enqueue_cycle_;    // uid -> clk_ at registration

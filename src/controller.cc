@@ -197,12 +197,9 @@ void Controller::FlushBufferedBlock(uint64_t uid){
     }
 
     // Clean up
-    if(g_buf_enabled){
-        addr_index_.erase(active_blocks_.at(uid).addr);
-        active_blocks_.erase(uid);
-        staged_.erase(uid);
-        block_enqueue_cycle_.erase(uid);
-    }
+    active_blocks_.erase(uid);
+    staged_.erase(uid);
+    block_enqueue_cycle_.erase(uid);
 }
 
 bool Controller::WillAcceptTransaction(uint64_t hex_addr, bool is_write) const {
@@ -216,14 +213,24 @@ bool Controller::WillAcceptTransaction(uint64_t hex_addr, bool is_write) const {
 }
 
 bool Controller::AddTransaction(Transaction trans) {
+
     trans.added_cycle = clk_;
     simple_stats_.AddValue("interarrival_latency", clk_ - last_trans_clk_);
     last_trans_clk_ = clk_;
 
     if(trans.buf_uid != 0){
-        std::cerr << "trans uid=" << trans.buf_uid 
-            << " stop=" << trans.buf_stop 
-            << " addr=" << trans.addr << std::endl;
+        std::cerr << "=== buf trans: uid=" << trans.buf_uid 
+                << " stop=" << trans.buf_stop 
+                << " addr=0x" << std::hex << trans.addr << std::dec
+                << " offset=" << trans.buf_offset
+                << " clk=" << clk_ << std::endl
+                << " channel=" << channel_id_ << std::endl;
+        std::cerr << "  active_blocks size=" << active_blocks_.size() << ": ";
+        for(auto &e : active_blocks_) std::cerr << "uid=" << e.first << " ";
+        std::cerr << std::endl;
+        std::cerr << "  pending_stops size=" << pending_stops_.size() << ": ";
+        for(auto &e : pending_stops_) std::cerr << e << " ";
+        std::cerr << std::endl;
     }
 
     // Buffering logic -- Intercept transactions before they make it to a queue
@@ -239,7 +246,6 @@ bool Controller::AddTransaction(Transaction trans) {
                 } else {
 
                     active_blocks_[trans.buf_uid] = trans;
-                    addr_index_[trans.addr] = trans.buf_uid;
                     staged_[trans.buf_uid] = {trans}; // add trans for staged vec
                     block_enqueue_cycle_[trans.buf_uid] = clk_;
                     return true;
@@ -258,17 +264,11 @@ bool Controller::AddTransaction(Transaction trans) {
             }
         }
 
-        // check if addr falls within buffered block
-        if(!addr_index_.empty()){
-            auto it = addr_index_.upper_bound(trans.addr);
-            if(it != addr_index_.begin()){
-                --it;
-                const auto &block = active_blocks_.at(it->second);
-                if(trans.addr < block.addr + block.buf_offset){
-                    // add to staged transactions
-                    staged_[it->second].push_back(trans);
-                    return true;
-                }
+        for (auto &entry : active_blocks_) {
+            const auto &block = entry.second;
+            if (trans.addr >= block.addr && trans.addr < block.addr + block.buf_offset) {
+                staged_[entry.first].push_back(trans);
+                return true;
             }
         }
     }

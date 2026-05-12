@@ -147,9 +147,11 @@ bool JedecDRAMSystem::AddTransaction(uint64_t hex_addr, bool is_write) {
 bool JedecDRAMSystem::AddTransaction(Transaction trans) {
 // Record trace - Record address trace for debugging or other purposes
 #ifdef ADDR_TRACE
-    address_trace_ << std::hex << hex_addr << std::dec << " "
-                   << (is_write ? "WRITE " : "READ ") << clk_ << std::endl;
+    address_trace_ << std::hex << trans.addr << std::dec << " "
+                   << (trans.is_write ? "WRITE " : "READ ") << clk_ << std::endl;
 #endif
+
+    // std::cerr << "JEDEC Transaction overload uid=" << trans.buf_uid << std::endl;
 
     int channel = GetChannel(trans.addr);
     bool ok = ctrls_[channel]->WillAcceptTransaction(trans.addr, trans.is_write);

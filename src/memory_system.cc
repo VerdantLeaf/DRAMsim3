@@ -47,6 +47,7 @@ bool MemorySystem::AddTransaction(uint64_t hex_addr, bool is_write) {
 }
 
 bool MemorySystem::AddTransaction(Transaction trans) {
+    // std::cerr << "MemorySystem Transaction overload uid=" << trans.buf_uid << std::endl;
     return dram_system_->AddTransaction(trans);
 }
 

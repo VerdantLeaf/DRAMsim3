@@ -142,10 +142,10 @@ void Controller::ClockTick() {
         }
     }
 
-    if(enable_buffering){
+    if(g_buf_enabled){
         std::vector<uint64_t> evict;
         for (auto &entry : block_enqueue_cycle_) {
-            if (clk_ - entry.second > kBufWatchdogCycles) {
+            if (clk_ - entry.second > g_buf_watchdog_cycles) {
                 evict.push_back(entry.first);
             }
         }
@@ -197,10 +197,12 @@ void Controller::FlushBufferedBlock(uint64_t uid){
     }
 
     // Clean up
-    addr_index_.erase(active_blocks_.at(uid).addr);
-    active_blocks_.erase(uid);
-    staged_.erase(uid);
-    block_enqueue_cycle_.erase(uid);
+    if(g_buf_enabled){
+        addr_index_.erase(active_blocks_.at(uid).addr);
+        active_blocks_.erase(uid);
+        staged_.erase(uid);
+        block_enqueue_cycle_.erase(uid);
+    }
 }
 
 bool Controller::WillAcceptTransaction(uint64_t hex_addr, bool is_write) const {
@@ -219,8 +221,14 @@ bool Controller::AddTransaction(Transaction trans) {
     last_trans_clk_ = clk_;
 
     // Buffering logic -- Intercept transactions before they make it to a queue
-    if(enable_buffering){
+    if(g_buf_enabled){
+
         if(trans.buf_uid != 0){
+
+            std::cerr << "trans uid=" << trans.buf_uid 
+                << " stop=" << trans.buf_stop 
+                << " addr=" << trans.addr << std::endl;
+
             if(!trans.buf_stop){
                 // is start block
                 if(pending_stops_.count(trans.buf_uid)){

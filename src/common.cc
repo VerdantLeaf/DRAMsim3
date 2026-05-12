@@ -32,7 +32,7 @@ std::ostream& operator<<(std::ostream& os, const Command& cmd) {
 
 std::ostream& operator<<(std::ostream& os, const Transaction& trans) {
     const std::string trans_type = trans.is_write ? "WRITE" : "READ";
-    os << fmt::format("{:<30} {:>8} {:>8} {:>8}", trans.addr, trans_type, trans.buf_uid, trans.buf_offset);
+    os << fmt::format("{:<30} {:>8} {:>8} {:>8} {:>8}", trans.addr, trans_type, trans.buf_uid, trans.buf_offset, trans.buf_stop);
     return os;
 }
 
@@ -41,7 +41,7 @@ std::istream& operator>>(std::istream& is, Transaction& trans) {
                                                    "BOFF"};
     std::string mem_op;
 
-    is >> std::hex >> trans.addr >> mem_op >> std::dec >> trans.added_cycle >> trans.buf_uid >> trans.buf_offset;
+    is >> std::hex >> trans.addr >> mem_op >> std::dec >> trans.added_cycle >> trans.buf_uid >> trans.buf_offset >> trans.buf_stop;
     trans.is_write = write_types.count(mem_op) == 1;
   
     return is;

@@ -78,7 +78,7 @@ int main(int argc, const char **argv) {
     }
     cpu->PrintStats();
 
-    std::cout << "Total transactions submitted: " << my_counter << std::endl;
+    std::cout << std::endl << "Total transactions submitted: " << my_counter << std::endl;
     std::cout << "Rejected transactions: " <<  rejected_counter << std::endl;
 
 

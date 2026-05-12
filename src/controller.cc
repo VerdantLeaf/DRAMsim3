@@ -218,20 +218,20 @@ bool Controller::AddTransaction(Transaction trans) {
     simple_stats_.AddValue("interarrival_latency", clk_ - last_trans_clk_);
     last_trans_clk_ = clk_;
 
-    if(trans.buf_uid != 0){
-        std::cerr << "=== buf trans: uid=" << trans.buf_uid 
-                << " stop=" << trans.buf_stop 
-                << " addr=0x" << std::hex << trans.addr << std::dec
-                << " offset=" << trans.buf_offset
-                << " clk=" << clk_ << std::endl
-                << " channel=" << channel_id_ << std::endl;
-        std::cerr << "  active_blocks size=" << active_blocks_.size() << ": ";
-        for(auto &e : active_blocks_) std::cerr << "uid=" << e.first << " ";
-        std::cerr << std::endl;
-        std::cerr << "  pending_stops size=" << pending_stops_.size() << ": ";
-        for(auto &e : pending_stops_) std::cerr << e << " ";
-        std::cerr << std::endl;
-    }
+    // if(trans.buf_uid != 0){
+    //     std::cerr << "=== buf trans: uid=" << trans.buf_uid 
+    //             << " stop=" << trans.buf_stop 
+    //             << " addr=0x" << std::hex << trans.addr << std::dec
+    //             << " offset=" << trans.buf_offset
+    //             << " clk=" << clk_ << std::endl
+    //             << " channel=" << channel_id_ << std::endl;
+    //     std::cerr << "  active_blocks size=" << active_blocks_.size() << ": ";
+    //     for(auto &e : active_blocks_) std::cerr << "uid=" << e.first << " ";
+    //     std::cerr << std::endl;
+    //     std::cerr << "  pending_stops size=" << pending_stops_.size() << ": ";
+    //     for(auto &e : pending_stops_) std::cerr << e << " ";
+    //     std::cerr << std::endl;
+    // }
 
     // Buffering logic -- Intercept transactions before they make it to a queue
     if(g_buf_enabled){

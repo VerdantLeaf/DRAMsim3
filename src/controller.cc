@@ -220,14 +220,16 @@ bool Controller::AddTransaction(Transaction trans) {
     simple_stats_.AddValue("interarrival_latency", clk_ - last_trans_clk_);
     last_trans_clk_ = clk_;
 
+    if(trans.buf_uid != 0){
+        std::cerr << "trans uid=" << trans.buf_uid 
+            << " stop=" << trans.buf_stop 
+            << " addr=" << trans.addr << std::endl;
+    }
+
     // Buffering logic -- Intercept transactions before they make it to a queue
     if(g_buf_enabled){
 
         if(trans.buf_uid != 0){
-
-            std::cerr << "trans uid=" << trans.buf_uid 
-                << " stop=" << trans.buf_stop 
-                << " addr=" << trans.addr << std::endl;
 
             if(!trans.buf_stop){
                 // is start block

@@ -394,6 +394,12 @@ bool HMCMemorySystem::AddTransaction(uint64_t hex_addr, bool is_write) {
     return InsertHMCReq(req);
 }
 
+
+// Add to compile cleanly
+bool HMCMemorySystem::AddTransaction(Transaction trans) {
+    return AddTransaction(trans.addr, trans.is_write);
+}
+
 bool HMCMemorySystem::InsertReqToLink(HMCRequest *req, int link) {
     // These things need to happen when an HMC request is inserted to a link:
     // 1. check if link queue full

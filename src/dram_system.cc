@@ -144,6 +144,25 @@ bool JedecDRAMSystem::AddTransaction(uint64_t hex_addr, bool is_write) {
     return ok;
 }
 
+bool JedecDRAMSystem::AddTransaction(Transaction trans) {
+// Record trace - Record address trace for debugging or other purposes
+#ifdef ADDR_TRACE
+    address_trace_ << std::hex << hex_addr << std::dec << " "
+                   << (is_write ? "WRITE " : "READ ") << clk_ << std::endl;
+#endif
+
+    int channel = GetChannel(trans.addr);
+    bool ok = ctrls_[channel]->WillAcceptTransaction(trans.addr, trans.is_write);
+
+    assert(ok);
+    if (ok) {
+        ctrls_[channel]->AddTransaction(trans);
+    }
+    last_req_clk_ = clk_;
+    return ok;
+}
+
+
 void JedecDRAMSystem::ClockTick() {
     for (size_t i = 0; i < ctrls_.size(); i++) {
         // look ahead and return earlier
